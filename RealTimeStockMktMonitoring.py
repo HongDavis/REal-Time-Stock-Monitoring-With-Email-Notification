@@ -1,35 +1,37 @@
-# I have some stocks I want to sell and I want to sell at a price I think reasonable. Hence, I wrote this to email me when the market price of the stock exceeded my threshold or pre-determined price.
+# This Python script is about selling some of my stock when the market price meets my expectation. When the condition is met, a notification will be sent to me via email.
+# First, setup an account with Alpha Vantage so that I can download stock price via an API call.
+# Assumption: Python3 and the necessary library eg, pandas are already installed. 
 
 import pandas as pd
 from alpha_vantage.timeseries import TimeSeries
-import time 
+import time
+import os # Required to access system environment variables eg, email address, password
 
-# This function is to send an email to notify the user when the price of the stock exceeded the threshold.
-def sendemail():
+# This function sends an email to notify the user when the stock price meets the threshold.
+def sendemail(stpxthreshold,stpxcurrent):
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     import smtplib
-    pw = 'xxxx' # put in your email password.
+    pw = os.environ.get('MailPW') # Email password
     msg = MIMEMultipart()
-    msg['From'] = 'youremailaddress2@gmail.com' # put in the send from email address.
-    msg['To'] = 'recipient@yahoo.com' # Recipient's email address
-    msg['Subject'] = 'BK Stock Price Breached Threshold'
-    body = 'Threshold set at 45 and closing price is ' + str(close_data[-1])
+    msg['From'] = os.environ.get('FromMailID') # Sender's email address.
+    msg['To'] = os.environ.get('ToMailID') # Recipient's email address
+    msg['Subject'] = 'BK Stock Price Breached Selling Price Threshold'
+    body = 'Threshold set at ' + str(stpxthreshold) + '; current closing price is $' + str(stpxcurrent)
     msg.attach(MIMEText(body, 'html'))
 
-    server = smtplib.SMTP("smtp.gmail.com", 587) # Find out from your email service provider their SMTP server details if you are using a different SMTP server.
+    server = smtplib.SMTP("smtp.gmail.com", 587) # Find out SMTP details from email service provider.
     server.starttls() # Encrypt email using tls
-    server.login(msg['From'], pw) # Login to your email account
-    server.sendmail(msg['From'], msg['To'], msg.as_string())
+    server.login(msg['From'], pw) # Login to email account
+    server.sendmail(msg['From'], msg['To'], msg.as_string()) # Send email
     server.quit() # Close the SMTP server
     print('Email sent to your yahoo email.')
 
-# Due to confidentiality, the API key used in these codes is fake.
-# # API key can be easily obtained from https://www.alphavantage.co/support/#api-key
-api_key = 'xxxxxxxxxxxxxxxx' # Put in your alpha vantage api key. 
+# API key can be easily obtained from https://www.alphavantage.co/support/#api-key
+api_key = os.environ.get('AlphaVantageAPI') # Put in your alpha vantage api key. 
 
 # Assign time series to variable 'ts'. Setting output format as pandas format.
-ts = TimeSeries(key=api_key, output_format = "pandas")
+ts = TimeSeries(key = api_key, output_format = "pandas")
 
 # Next, get stock data from the web and assign the data to variables
 # data and meta_data. 
@@ -45,15 +47,14 @@ data, meta_data = ts.get_intraday(symbol= "BK", interval = '1min', outputsize = 
 ###     time.sleep(60)  # 60 seconds = 1 min
 
 # To pull real time data down to the minute, this tentamount to day trading. Day trading is making all the money using the the volatility of the stock. Top find the volatility of the stock in a given min,# first thing needed is the closing data in each min.
+stpxthreshold = 45.00 # Threshold stock price
 close_data = data['4. close'] # this is to pull all the info from the closing data.
-if close_data[-1] > 45:
-    sendemail()
+if close_data[-1] > stpxthreshold:
+    sendemail(stpxthreshold, close_data[-1])
 else:
-    print('Email not sent as closing price is below threshold of $45. Current stock price is ' + str(close_data[-1]))
-# Next, compute the % change in between each min
+    print('Email not sent as closing price is below threshold of ' + str(stpxthreshold) + '. Current stock price is ' + str(close_data[-1]))
+# Compute the % change in between each min
 ### percentage_change = close_data.pct_change()
 ### print(percentage_change)
 # Only the last percentage change is of interest.
 ### last_change = percentage_change[-1]
-
-# You can easily implement the in a while loop to monitor the stock price.
